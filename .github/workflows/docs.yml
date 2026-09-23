@@ -18,6 +18,7 @@ jobs:
       contents: write
       pages: write
       id-token: write
+      statuses: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,11 +28,19 @@ jobs:
         with:
           version: '1.10'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - uses: julia-actions/cache@v2
+
+      - name: Install documentation frontend dependencies
+        working-directory: docs
+        run: npm install
 
       - name: Instantiate docs environment
         run: |
-          julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate(); Pkg.precompile()'
+          julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
       - name: Build documentation
         run: julia --project=docs docs/make.jl

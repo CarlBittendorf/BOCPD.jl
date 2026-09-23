@@ -6,7 +6,7 @@
   "scripts": {
     "docs:dev": "vitepress dev build/.documenter",
     "docs:build": "vitepress build build/.documenter",
-    "docs:preview": "vitepress preview build/.documenter"
+    "docs:preview": "julia --project=. preview.jl"
   },
   "dependencies": {
     "@nolebase/vitepress-plugin-enhanced-readabilities": "^2.18.2",

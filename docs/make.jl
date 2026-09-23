@@ -24,6 +24,8 @@ makedocs(;
 
 DocumenterVitepress.deploydocs(
     repo = "github.com/CarlBittendorf/BOCPD.jl.git",
+    target = joinpath(@__DIR__, "build"),
+    branch = "gh-pages",
     devbranch = "main",
     push_preview = true,
 )
