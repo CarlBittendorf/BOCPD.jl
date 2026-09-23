@@ -64,6 +64,19 @@ for x in observations
 end
 ```
 
+### Choosing a model
+
+| Model | Observation type | Unknown quantities | Predictive distribution | Partial vectors |
+| --- | --- | --- | --- | --- |
+| `GaussianMeanModel` | Scalar continuous | Mean; variance is known | Gaussian | Not applicable |
+| `NormalInverseGammaModel` | Scalar continuous | Mean and variance | Student-t | Not applicable |
+| `MultivariateGaussianMeanModel` | Vector continuous | Mean; covariance is known | Multivariate Gaussian | Exact marginal update |
+| `NormalInverseWishartModel` | Vector continuous | Mean and full covariance | Multivariate Student-t | Not supported; fully missing vectors are supported |
+| `BernoulliModel` | Boolean | Success probability | Beta-Bernoulli predictive | Not applicable |
+| `PoissonModel` | Nonnegative integer count | Rate | Negative-binomial predictive | Not applicable |
+
+Use `GaussianMeanModel` when the measurement noise variance is known and stable. Use `NormalInverseGammaModel` when both the segment mean and its scalar variance may change. For vector-valued measurements with known measurement covariance, use `MultivariateGaussianMeanModel`; it also supports vectors with some coordinates missing. For vector-valued measurements where both the mean and full covariance are unknown, use `NormalInverseWishartModel`. Its complete observations are conjugate, but partial vectors are rejected because exact conjugate updates with an unknown full covariance are not implemented.
+
 ## Multivariate example
 
 ```julia
@@ -79,6 +92,27 @@ model = MultivariateGaussianMeanModel(
 
 fit(model, multivariate_data; hazard = ConstantHazard(50))
 ```
+
+## Hazards
+
+`ConstantHazard(100)` means a geometric expected segment length of 100. `GeometricHazard(0.01)` expresses the same constant probability directly. Ordinary functions are also accepted:
+
+```julia
+increasing = r -> clamp(0.001 + 0.0001r, 0.0, 1.0)
+result = fit(model, multivariate_data; hazard=increasing)
+```
+
+For hazards depending on elapsed time, use `CustomHazard`:
+
+```julia
+time_hazard = CustomHazard(t -> t > 100 ? 0.2 : 0.01; depends_on=:time)
+joint_hazard = CustomHazard(
+    (r, t) -> clamp(0.01 + 0.001r + 0.0001t, 0, 1);
+    depends_on=:run_time
+)
+```
+
+The `depends_on` value describes the callable signature; hazard probabilities are still validated in `[0, 1]` at every transition.
 
 ## Missing data
 
@@ -101,7 +135,7 @@ A fully missing observation advances time and applies the hazard without updatin
 
 ```julia
 result = fit(
-    model,
+    GaussianMeanModel(),
     observations;
     hazard = ConstantHazard(50),
     history = FixedLagHistory(5),
