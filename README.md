@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/CarlBittendorf/BOCPD.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/CarlBittendorf/BOCPD.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://carlbittendorf.github.io/BOCPD.jl/)
 
 BOCPD.jl implements Bayesian online changepoint detection by tracking a posterior distribution over the current run length and the probability that the latest observation started a new segment.
 
