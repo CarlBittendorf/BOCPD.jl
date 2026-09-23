@@ -21,38 +21,90 @@ struct ObservedSubset{V<:AbstractVector,I<:AbstractVector{Int}}
     end
 end
 
-"""Return whether `model` implements exact partial-vector inference."""
+"""
+    supports_partial_observations(model::AbstractObservationModel) -> Bool
+
+Indicate whether `model` implements exact inference for partially observed
+vectors.
+"""
 supports_partial_observations(::AbstractObservationModel) = false
 
+"""
+    logpredictive(model, state, observation) -> Real
+
+Evaluate the log predictive probability or density of `observation` under a
+posterior `state`.
+"""
 function logpredictive(model::AbstractObservationModel, state::AbstractPosteriorState, ::Missing)
     0.0
 end
 
+"""
+    update(model, state, ::Missing) -> AbstractPosteriorState
+
+Preserve `state` when an observation is fully missing.
+"""
 update(model::AbstractObservationModel, state::AbstractPosteriorState, ::Missing) = state
 
+"""
+    reset(model, observation) -> AbstractPosteriorState
+
+Create the posterior state for a new segment after observing `observation`.
+"""
 reset(model::AbstractObservationModel, ::Missing) = prior_state(model)
 
-"""Return a fresh prior posterior state for `model`."""
+"""
+    prior_state(model::AbstractObservationModel) -> AbstractPosteriorState
+
+Create a fresh prior posterior state for `model`.
+"""
 prior_state(model::AbstractObservationModel) = throw(MethodError(prior_state, (model,)))
 
-"""Evaluate the log predictive density for one state and observation."""
+"""
+    logpredictive(model, state, observation) -> Real
+
+Evaluate the log predictive probability or density of `observation` under a
+posterior `state`.
+"""
 function logpredictive(model::AbstractObservationModel, state::AbstractPosteriorState, x)
     throw(MethodError(logpredictive, (model, state, x)))
 end
 
-"""Update a posterior state with one observed value."""
+"""
+    update(model, state, observation) -> AbstractPosteriorState
+
+Update a posterior state with one observed value.
+"""
 function update(model::AbstractObservationModel, state::AbstractPosteriorState, x)
     throw(MethodError(update, (model, state, x)))
 end
 
-"""Create the posterior state for a new segment after observing `x`."""
+"""
+    reset(model, observation) -> AbstractPosteriorState
+
+Create the posterior state for a new segment by updating a fresh prior state
+with `observation`.
+"""
 reset(model::AbstractObservationModel, x) = update(model, prior_state(model), x)
 
+"""
+    predictive_distribution(model, state) -> Distribution
+
+Return the predictive distribution associated with a posterior `state`.
+Observation models should implement this method when a natural distribution
+object exists.
+"""
 function predictive_distribution(model::AbstractObservationModel, state::AbstractPosteriorState)
     throw(ArgumentError("predictive_distribution is not implemented for $(typeof(model))"))
 end
 
-"""Univariate Gaussian observations with known variance and unknown mean."""
+"""
+    GaussianMeanModel(; prior_mean=0.0, prior_variance=1.0,
+                      observation_variance=1.0)
+
+Model univariate Gaussian observations with known observation variance and an
+unknown mean.
+"""
 struct GaussianMeanModel{T<:Real} <: AbstractObservationModel
     prior_mean::T
     prior_variance::T
@@ -93,7 +145,13 @@ function predictive_distribution(m::GaussianMeanModel, s::GaussianMeanState)
     Normal(s.mean, sqrt(s.variance + m.observation_variance))
 end
 
-"""Univariate Gaussian observations with a Normal-Inverse-Gamma prior."""
+"""
+    NormalInverseGammaModel(; prior_mean=0.0, prior_strength=1.0, shape=2.0,
+                            scale=1.0)
+
+Model univariate Gaussian observations with a Normal-Inverse-Gamma prior for
+the unknown mean and variance.
+"""
 struct NormalInverseGammaModel{T<:Real} <: AbstractObservationModel
     prior_mean::T
     prior_strength::T
@@ -143,7 +201,13 @@ function update(::NormalInverseGammaModel, s::NormalInverseGammaState, x::Real)
     return NormalInverseGammaState(m, k, a, b)
 end
 
-"""Multivariate Gaussian observations with known covariance and unknown mean."""
+"""
+    MultivariateGaussianMeanModel(prior_mean, prior_covariance,
+                                  observation_covariance)
+
+Model multivariate Gaussian observations with known covariance and an unknown
+mean. Partially observed vectors are supported.
+"""
 struct MultivariateGaussianMeanModel{
     T<:Real,V<:AbstractVector{T},M<:AbstractMatrix{T},C} <:
     AbstractObservationModel
@@ -227,7 +291,15 @@ function update(m::MultivariateGaussianMeanModel, s::MultivariateGaussianMeanSta
     return MultivariateGaussianMeanState(posterior_mean, posterior_covariance)
 end
 
-"""Multivariate Gaussian observations with a Normal-Inverse-Wishart prior."""
+"""
+    NormalInverseWishartModel(; prior_mean, prior_strength=1.0,
+                              degrees_of_freedom=length(prior_mean) + 2.0,
+                              scale_matrix=I)
+
+Model multivariate Gaussian observations with a Normal-Inverse-Wishart prior
+for the unknown mean and full covariance. Partially observed vectors are not
+supported.
+"""
 struct NormalInverseWishartModel{
     T<:Real,V<:AbstractVector{T},M<:AbstractMatrix{T}} <: AbstractObservationModel
     prior_mean::V
@@ -280,7 +352,11 @@ function update(::NormalInverseWishartModel, s::NormalInverseWishartState, x::Ab
     return NormalInverseWishartState(s.mean + δ / k, k, s.degrees_of_freedom + 1, s.scale_matrix + (s.strength / k) * (δ * δ'))
 end
 
-"""Bernoulli observations with a Beta prior on the success probability."""
+"""
+    BernoulliModel(; alpha=1.0, beta=1.0)
+
+Model Boolean observations with a Beta prior on the success probability.
+"""
 struct BernoulliModel{T<:Real} <: AbstractObservationModel
     alpha::T
     beta::T
@@ -313,7 +389,11 @@ function predictive_distribution(::BernoulliModel, s::BernoulliState)
     Bernoulli(s.alpha / (s.alpha + s.beta))
 end
 
-"""Count observations with a Gamma prior on the Poisson rate."""
+"""
+    PoissonModel(; shape=1.0, rate=1.0)
+
+Model nonnegative integer count observations with a Gamma prior on the rate.
+"""
 struct PoissonModel{T<:Real} <: AbstractObservationModel
     shape::T
     rate::T

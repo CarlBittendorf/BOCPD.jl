@@ -31,8 +31,10 @@ hazard = r -> clamp(0.001 + 0.0001r, 0, 1)
 Use `CustomHazard` when a function depends on time or both run length and time:
 
 ```julia
-hazard = CustomHazard((r, t) -> clamp(0.01 + 0.001r + 0.0001t, 0, 1);
-                     depends_on=:run_time)
+hazard = CustomHazard(
+    (r, t) -> clamp(0.01 + 0.001r + 0.0001t, 0, 1);
+    depends_on=:run_time
+)
 ```
 
 ## Pruning

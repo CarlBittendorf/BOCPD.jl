@@ -1,6 +1,25 @@
-# BOCPD.jl
+```@raw html
+---
+# https://vitepress.dev/reference/default-theme-home-page
+layout: home
 
-BOCPD.jl detects changes in streaming data by maintaining a posterior distribution over run length.
+hero:
+  name: "BOCPD.jl"
+  text:
+  tagline: Flexible Bayesian Online Change Point Detection
+  actions:
+    - theme: brand
+      text: Getting started
+      link: /getting_started
+    - theme: alt
+      text: View on Github
+      link: https://github.com/CarlBittendorf/BOCPD.jl
+---
+```
+
+# Welcome to BOCPD!
+
+BOCPD.jl provides a flexible and efficient implementation of Bayesian Online Change Point Detection for univariate and multivariate data. It supports multiple observation models, unknown means and variances, custom hazard functions, missing observations, and delayed changepoint probabilities. Its idiomatic Julia API makes the package easy to use, extend, and integrate into real-time data-processing workflows.
 
 ## Installation
 
@@ -18,16 +37,17 @@ Pkg.add(url = "https://github.com/CarlBittendorf/BOCPD.jl")
 using BOCPD
 
 observations = vcat(fill(0.0, 30), fill(4.0, 30))
+
 model = NormalInverseGammaModel()
 
 result = fit(model, observations; hazard = ConstantHazard(50))
+
 changepoint_probabilities(result)
 ```
 
-```@contents
-Pages = ["getting_started.md", "algorithm.md", "missing_data.md", "extending.md", "api.md"]
-Depth = 2
-```
+## Acknowledgements
+
+Funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) – GRK2739/2 – Project Nr. 447089431 – Research Training Group: KD²School – Designing Biosignal-Adaptive Systems for Decision-Making Processes
 
 ```@meta
 CurrentModule = BOCPD

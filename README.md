@@ -64,7 +64,7 @@ for x in observations
 end
 ```
 
-### Choosing a model
+## Choosing a model
 
 | Model | Observation type | Unknown quantities | Predictive distribution | Partial vectors |
 | --- | --- | --- | --- | --- |
@@ -106,6 +106,7 @@ For hazards depending on elapsed time, use `CustomHazard`:
 
 ```julia
 time_hazard = CustomHazard(t -> t > 100 ? 0.2 : 0.01; depends_on=:time)
+
 joint_hazard = CustomHazard(
     (r, t) -> clamp(0.01 + 0.001r + 0.0001t, 0, 1);
     depends_on=:run_time

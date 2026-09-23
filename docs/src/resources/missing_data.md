@@ -4,8 +4,13 @@ Use Julia's `missing` value when a time point occurred but its measurement is un
 
 ```julia
 observations = Union{Missing,Float64}[0.1, 0.2, missing, 4.8]
-result = fit(GaussianMeanModel(), observations;
-    hazard=ConstantHazard(50), history=FixedLagHistory(5))
+
+result = fit(
+    GaussianMeanModel(),
+    observations;
+    hazard=ConstantHazard(50),
+    history=FixedLagHistory(5)
+)
 ```
 
 A missing point advances the run-length process and applies the hazard. It contributes no likelihood evidence and does not update posterior sufficient statistics. `observation_status(result, t)` reports `:observed`, `:missing`, or `:partially_observed`.

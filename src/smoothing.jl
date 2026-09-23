@@ -82,16 +82,31 @@ function changepoint_probability(r::BOCPDResult, t::Integer; delay=0)
     exp(logsumexp(reset_terms) - logsumexp(all_terms))
 end
 
-"""Return fixed-lag changepoint probabilities using a typed query policy."""
+"""
+    changepoint_probabilities(result::BOCPDResult, query::FixedLag)
+
+Return changepoint probabilities using the fixed-lag query in `query`.
+"""
 function changepoint_probabilities(r::BOCPDResult, query::FixedLag)
     changepoint_probabilities(r; delay=query.lag)
 end
 
+"""
+    changepoint_probability(result::BOCPDResult, t::Integer, query::FixedLag)
+
+Return the fixed-lag changepoint probability for time `t`.
+"""
 function changepoint_probability(r::BOCPDResult, t::Integer, query::FixedLag)
     changepoint_probability(r, t; delay=query.lag)
 end
 
-"""Return the delayed probability for the online detector; positive delays require batch history."""
+"""
+    delayed_changepoint_probability(detector::BOCPDDetector, delay::Integer)
+
+Return the delayed changepoint probability for `detector`. Positive delays
+require batch history and therefore raise an `ArgumentError` for an online
+detector.
+"""
 function delayed_changepoint_probability(d::BOCPDDetector, delay::Integer)
     delay >= 0 || throw(ArgumentError("delay must be nonnegative"))
 

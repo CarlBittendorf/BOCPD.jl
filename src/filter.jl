@@ -6,7 +6,7 @@ struct FilterSnapshot{S,T}
 end
 
 """
-    BOCPDDetector(model; kwargs...)
+    BOCPDDetector(model, hazard=ConstantHazard(100); <keyword arguments>)
 
 Create an online BOCPD detector. The convention is `r_t == 0` when the
 observation at time `t` starts a new segment. Keyword arguments include
@@ -122,7 +122,11 @@ function _update_missing_one!(d::BOCPDDetector)
     _finish_step!(d, runs, raw, states, total, :missing, missing)
 end
 
-"""`update!(detector, missing)` advances time without observation evidence or state updates."""
+"""
+    update!(detector::BOCPDDetector, ::Missing; delta_t=1)
+
+Advance time without observation evidence or posterior-state updates.
+"""
 function update!(d::BOCPDDetector, ::Missing; delta_t::Integer=1)
     delta_t >= 1 || throw(ArgumentError("delta_t must be at least one"))
 
@@ -181,7 +185,12 @@ function _validate_scalar!(d::BOCPDDetector, x)
     return x
 end
 
-"""Process a scalar observation, optionally inserting `delta_t - 1` missing steps first."""
+"""
+    update!(detector::BOCPDDetector, observation::Real; delta_t=1)
+
+Process a scalar observation, optionally inserting `delta_t - 1` missing steps
+first.
+"""
 function update!(d::BOCPDDetector, x::Real; delta_t::Integer=1)
     delta_t >= 1 || throw(ArgumentError("delta_t must be at least one"))
 
@@ -218,7 +227,11 @@ function _prepare_vector(d::BOCPDDetector, x::AbstractVector)
     return values
 end
 
-"""Process a vector observation, including fully or partially missing vectors."""
+"""
+    update!(detector::BOCPDDetector, observation::AbstractVector; delta_t=1)
+
+Process a vector observation, including fully or partially missing vectors.
+"""
 function update!(d::BOCPDDetector, x::AbstractVector; delta_t::Integer=1)
     delta_t >= 1 || throw(ArgumentError("delta_t must be at least one"))
 
@@ -261,31 +274,69 @@ function update!(d::BOCPDDetector, x; delta_t::Integer=1)
     _update_observed_one!(d, x, :observed)
 end
 
-"""Return a copy of the current posterior probabilities indexed by explicit run length."""
+"""
+    runlength_probs(detector::BOCPDDetector) -> Vector
+
+Return current posterior probabilities indexed by explicit run length.
+"""
 runlength_probs(d::BOCPDDetector) = exp.(d.logprobs)
 
-"""Descriptive alias for [`runlength_probs`](@ref)."""
+"""
+    runlength_probabilities(detector::BOCPDDetector) -> Vector
+
+Return current posterior probabilities indexed by explicit run length.
+
+See also [`runlength_probs`](@ref).
+"""
 runlength_probabilities(d::BOCPDDetector) = runlength_probs(d)
 
-"""Return a copy of the current log run-length posterior."""
+"""
+    log_runlength_probs(detector::BOCPDDetector) -> Vector
+
+Return the current log run-length posterior.
+"""
 log_runlength_probs(d::BOCPDDetector) = copy(d.logprobs)
 
-"""Return the run length with greatest current posterior probability."""
+"""
+    most_likely_runlength(detector::BOCPDDetector) -> Int
+
+Return the run length with greatest current posterior probability.
+"""
 most_likely_runlength(d::BOCPDDetector) = d.runs[argmax(d.logprobs)]
 
-"""Return the online probability that the current observation starts a segment."""
+"""
+    current_changepoint_probability(detector::BOCPDDetector) -> Real
+
+Return the online probability that the current observation starts a segment.
+"""
 current_changepoint_probability(d::BOCPDDetector) = d.changepoint_probability
 
-"""Return the number of processed time points."""
+"""
+    time_index(detector::BOCPDDetector) -> Int
+
+Return the number of processed time points.
+"""
 time_index(d::BOCPDDetector) = d.time
 
-"""Return the predictive distribution for the most likely current state."""
+"""
+    predictive_distribution(detector::BOCPDDetector) -> Distribution
+
+Return the predictive distribution for the most likely current state.
+"""
 function predictive_distribution(d::BOCPDDetector)
     predictive_distribution(d.model, d.states[argmax(d.logprobs)])
 end
 
-"""Return `:observed`, `:missing`, or `:partially_observed` for time `t`."""
+"""
+    observation_status(detector::BOCPDDetector, t::Integer) -> Symbol
+
+Return `:observed`, `:missing`, or `:partially_observed` for time `t`.
+"""
 observation_status(d::BOCPDDetector, t::Integer) = d.statuses[t]
 
-"""Return whether time `t` was fully missing."""
+"""
+    ismissingobservation(detector::BOCPDDetector, t::Integer) -> Bool
+
+Return whether time `t` was fully missing.
+"""
 ismissingobservation(d::BOCPDDetector, t::Integer) = d.statuses[t] === :missing

@@ -6,25 +6,19 @@ BOCPD maintains competing hypotheses about how long the current segment has last
 
 The run length is
 
-\[
-r_t = \text{number of observations since the most recent changepoint}.
-\]
+$$r_t = \text{number of observations since the most recent changepoint}.$$
 
-BOCPD.jl uses `r_t = 0` when `x_t` is the first observation of a new segment. Each active run length has its own posterior state and predictive distribution.
+BOCPD.jl uses ``r_t = 0`` when ``x_t`` is the first observation of a new segment. Each active run length has its own posterior state and predictive distribution.
 
 ## Recursion
 
-Let `H(r)` be the hazard, the prior probability that the next observation starts a new segment. For an existing run-length hypothesis, the growth branch is
+Let ``H(r)`` be the hazard, the prior probability that the next observation starts a new segment. For an existing run-length hypothesis, the growth branch is
 
-\[
-p(r_t=r+1, x_t) = p(r_{t-1}=r) [1-H(r)] p(x_t \mid r).
-\]
+$$p(r_t=r+1, x_t) = p(r_{t-1}=r) [1-H(r)] p(x_t \mid r).$$
 
 The reset branch collects all possible previous run lengths:
 
-\[
-p(r_t=0, x_t) = \sum_r p(r_{t-1}=r) H(r) p(x_t \mid r=0).
-\]
+$$p(r_t=0, x_t) = \sum_r p(r_{t-1}=r) H(r) p(x_t \mid r=0).$$
 
 The reset predictive uses a fresh prior state. Growth uses the predictive density of the existing posterior state and then updates that state. After both branches are constructed, weights are normalized.
 
@@ -38,9 +32,7 @@ Weights are stored as logarithms. Sums over competing hypotheses use log-sum-exp
 
 A fully missing observation has log predictive contribution zero. Time still advances and the hazard transition still occurs:
 
-\[
-\log p(x_t=\text{missing}\mid state)=0.
-\]
+$$\log p(x_t=\text{missing}\mid state)=0.$$
 
 Growth carries the posterior state unchanged and reset creates a fresh prior state. It is therefore not equivalent to skipping the time point or imputing a value.
 

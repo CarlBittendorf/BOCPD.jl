@@ -32,7 +32,12 @@ function (h::CustomHazard)(run::Integer, time::Integer)
     h.depends_on === :run ? h.f(run) : h.depends_on === :time ? h.f(time) : h.f(run, time)
 end
 
-"""Constant hazard represented by an expected segment length."""
+"""
+    ConstantHazard(expected_segment_length::Integer)
+
+Construct a constant hazard with geometric expected segment length
+`expected_segment_length`.
+"""
 struct ConstantHazard
     probability::Float64
 end
@@ -48,7 +53,11 @@ end
 (h::CustomHazard)(run::Integer) = h(run, 0)
 (h::ConstantHazard)(::Integer) = h.probability
 
-"""A geometric-segment hazard with the supplied changepoint probability."""
+"""
+    GeometricHazard(probability::Real)
+
+Construct a constant hazard with changepoint probability `probability`.
+"""
 struct GeometricHazard{T<:Real}
     probability::T
 

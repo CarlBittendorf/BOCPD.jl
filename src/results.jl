@@ -64,7 +64,12 @@ function fit(
         detector.partially_missing_count, detector.rejected_invalid_count)
 end
 
-"""Fit an existing detector over an iterable, returning a batch result."""
+"""
+    fit(detector::BOCPDDetector, observations; store_predictive_log_scores=false)
+
+Continue `detector` over an iterable of observations and return a
+`BOCPDResult`.
+"""
 function fit(detector::BOCPDDetector, observations; store_predictive_log_scores=false)
     cps = Float64[]
     modes = Int[]
@@ -98,11 +103,21 @@ function fit(detector::BOCPDDetector, observations; store_predictive_log_scores=
         detector.partially_missing_count, detector.rejected_invalid_count)
 end
 
-"""Return online or delayed changepoint probabilities for every retained time point."""
+"""
+    changepoint_probabilities(result::BOCPDResult; delay=0)
+
+Return online or delayed changepoint probabilities for every retained time
+point.
+"""
 function changepoint_probabilities(r::BOCPDResult; delay=0)
     [changepoint_probability(r, t; delay) for t in eachindex(r.changepoint_probabilities)]
 end
 
+"""
+    runlength_probs(result::BOCPDResult, t::Integer)
+
+Return the retained run-length posterior at batch time `t`.
+"""
 function runlength_probs(r::BOCPDResult, t::Integer)
     r.runlength_history === nothing ?
     throw(ArgumentError("run-length history was not retained")) : r.runlength_history[t]
