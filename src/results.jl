@@ -1,4 +1,13 @@
-"""Immutable batch BOCPD output, including filtering, status, and pruning diagnostics."""
+"""
+    BOCPDResult
+
+Immutable batch output from a BOCPD fit or detector continuation. It stores the
+online changepoint probabilities, retained run-length summaries, observation
+status metadata, and pruning diagnostics for the processed sequence.
+
+The default `show` output is intentionally brief; `show(io, MIME("text/plain"), result)`
+provides a readable summary of the main batch-level metadata.
+"""
 struct BOCPDResult{M,H,T,S}
     model::M
     hazard::H
@@ -16,19 +25,88 @@ struct BOCPDResult{M,H,T,S}
     rejected_invalid_count::Int
 end
 
+function _result_history_label(r::BOCPDResult)
+    if r.runlength_history !== nothing
+        return "FullHistory()"
+    elseif !isempty(r.snapshots)
+        return "FixedLagHistory($(max(0, length(r.snapshots) - 1)))"
+    else
+        return "not retained"
+    end
+end
+
+function _result_max_delay(r::BOCPDResult)
+    if r.runlength_history !== nothing
+        return "full history"
+    elseif !isempty(r.snapshots)
+        return max(0, length(r.snapshots) - 1)
+    else
+        return "unavailable"
+    end
+end
+
+function _result_pruning_label(r::BOCPDResult)
+    isempty(r.discarded_mass) && return "none"
+    all(iszero, r.discarded_mass) && return "none"
+    return "approximate"
+end
+
+function Base.show(io::IO, result::BOCPDResult)
+    times = time_index(result)
+    history = _result_history_label(result)
+    max_delay = _result_max_delay(result)
+    has_missing = result.fully_missing_count > 0
+    pruning = _result_pruning_label(result)
+
+    print(io, "BOCPDResult(times=")
+    print(io, times)
+    print(io, ", history=")
+    print(io, history)
+    if max_delay isa Integer
+        print(io, ", max delay=")
+        print(io, max_delay)
+    end
+    if has_missing
+        print(io, ", missing=")
+        print(io, result.fully_missing_count)
+    end
+    if pruning != "none"
+        print(io, ", pruning=")
+        print(io, pruning)
+    end
+    print(io, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", result::BOCPDResult)
+    println(io, "BOCPDResult")
+    println(io, "  time points:            ", time_index(result))
+    if !isempty(result.changepoint_probabilities)
+        println(io, "  latest changepoint prob.: ", result.changepoint_probabilities[end])
+    end
+    if !isempty(result.most_likely_runlengths)
+        println(io, "  latest MAP run length:  ", result.most_likely_runlengths[end])
+    end
+    println(io, "  retained history:       ", _result_history_label(result))
+    delay = _result_max_delay(result)
+    println(io, "  maximum delay:          ", delay)
+    println(io, "  missing observations:   ", result.fully_missing_count)
+    println(io, "  pruning:               ", _result_pruning_label(result))
+end
+
 """
     fit(model, observations; kwargs...)
 
 Process an iterable of scalar, vector, or `missing` observations. The returned
-`BOCPDResult` stores changepoint probabilities and diagnostics. Full run-length
-history is stored only with `FullHistory()`; fixed-lag smoothing requires
-`FixedLagHistory(L)` or `FullHistory()`.
+`BOCPDResult` stores changepoint probabilities and diagnostics. By default, full
+run-length history is retained so delayed changepoint probabilities and fixed-lag
+smoothing are available without extra configuration. Use `NoHistory()` or
+`FixedLagHistory(L)` to limit retention.
 """
 function fit(
     model::AbstractObservationModel, observations;
     hazard=ConstantHazard(100),
     max_run_length=typemax(Int), prune_threshold=0.0, pruning=nothing,
-    history::AbstractHistoryPolicy=NoHistory(),
+    history::AbstractHistoryPolicy=FullHistory(),
     store_predictive_log_scores=false,
     invalid_data::AbstractInvalidDataPolicy=RejectNaN()
 )
@@ -106,8 +184,16 @@ end
 """
     changepoint_probabilities(result::BOCPDResult; delay=0)
 
-Return online or delayed changepoint probabilities for every retained time
-point.
+Return the online changepoint probabilities, or delayed probabilities for each
+observation time. With `delay = 0`, the function returns the in-sample online
+probabilities `P(c_t = true | x_1:t)`. With a positive delay `L`, it returns
+`P(c_t = true | x_1:min(T, t + L))`, where `c_t` means the observation at time
+`t` starts a new segment. This requires retained fixed-lag or full history, and
+it is not the same as the later terminal event `P(r_(t+L) = L | x_1:(t+L))`.
+
+The return value is a fresh vector of the same length as the batch result. If the
+requested delay exceeds the retained history, an `ArgumentError` is thrown with
+both the requested delay and the maximum available delay.
 """
 function changepoint_probabilities(r::BOCPDResult; delay=0)
     [changepoint_probability(r, t; delay) for t in eachindex(r.changepoint_probabilities)]

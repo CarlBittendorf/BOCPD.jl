@@ -50,6 +50,20 @@ function changepoint_probability(r::BOCPDResult, t::Integer; delay=0)
 
     delay == 0 && return r.changepoint_probabilities[t]
 
+    if r.runlength_history !== nothing
+        max_delay = typemax(Int)
+    elseif isempty(r.snapshots)
+        max_delay = 0
+    else
+        max_delay = max(0, length(r.snapshots) - 1)
+    end
+
+    if delay > max_delay
+        msg = "Requested delay $(delay) exceeds the maximum available delay $(max_delay); " *
+              "retain more history with fit(...; history=FixedLagHistory($(delay))) or history=FullHistory()."
+        throw(ArgumentError(msg))
+    end
+
     finish = min(length(r.observations), t + delay)
 
     finish > t || return r.changepoint_probabilities[t]

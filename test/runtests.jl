@@ -11,6 +11,8 @@ using Distributions
 
     include("hazards.jl")
     include("public_api.jl")
+    include("display.jl")
+    include("delay.jl")
 
     @testset "conjugate observation models" begin
         gm = GaussianMeanModel(prior_mean=0.0, prior_variance=1.0, observation_variance=1.0)
@@ -95,7 +97,7 @@ using Distributions
 
         @test all(length.(pruned.runlength_history) .<= 2)
         @test all(pruned.discarded_mass .>= 0)
-        @test_throws ArgumentError changepoint_probability(BOCPD.fit(model, data), 1; delay=1)
+        @test_throws ArgumentError changepoint_probability(BOCPD.fit(model, data; history=NoHistory()), 1; delay=1)
     end
 
     @testset "exact two-step recurrence" begin
@@ -224,7 +226,7 @@ using Distributions
 
         @test changepoint_probability(result, 2; delay=0) == result.changepoint_probabilities[2]
         @test 0 <= changepoint_probability(result, 2; delay=1) <= 1
-        @test_throws ArgumentError changepoint_probability(BOCPD.fit(model, observations), 2; delay=1)
+        @test_throws ArgumentError changepoint_probability(BOCPD.fit(model, observations; history=NoHistory()), 2; delay=1)
 
         function enumerate_event_probability(model, hazard, data, event_time)
             weights = Float64[]

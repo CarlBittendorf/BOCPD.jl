@@ -1,6 +1,6 @@
 name = "BOCPD"
 uuid = "71c670bf-f9ea-4f98-8ec4-4032b7591a87"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Carl Bittendorf"]
 
 [deps]
