@@ -4,7 +4,7 @@ using Distributions
 using LinearAlgebra
 using Random
 using Statistics
-using StatsFuns: logsumexp
+using LogExpFunctions: logsumexp
 
 export AbstractObservationModel, AbstractPosteriorState,
        prior_state, logpredictive, update, reset, predictive_distribution,
