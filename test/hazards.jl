@@ -36,3 +36,31 @@
 
     @test_throws ArgumentError update!(detector, missing)
 end
+
+@testset "negative-binomial duration hazard" begin
+    hazard = NegativeBinomialHazard(2, 0.5)
+
+    @test hazard(0) == 0.0
+    @test hazard(1) ≈ 0.25
+    @test hazard(2) ≈ 1 / 3
+    @test NegativeBinomialHazard(1, 0.2)(100) ≈ 0.2
+    @test NegativeBinomialHazard(2, 0.02)(10_000) ≈ 0.02 atol=1e-4
+    @test_throws DomainError hazard(-1)
+    @test_throws ArgumentError NegativeBinomialHazard(0, 0.5)
+    @test_throws ArgumentError NegativeBinomialHazard(2, 0.0)
+
+    deterministic = NegativeBinomialHazard(3, 1.0)
+    @test [deterministic(run) for run in 0:3] == [0.0, 0.0, 1.0, 1.0]
+
+    detector = Detector(BernoulliModel(), hazard)
+    update!(detector, true)
+    update!(detector, missing)
+    @test current_changepoint_probability(detector) == 0.0
+    update!(detector, missing)
+    @test current_changepoint_probability(detector) ≈ 0.25
+
+    observed = Detector(BernoulliModel(), hazard)
+    update!(observed, true)
+    update!(observed, true)
+    @test current_changepoint_probability(observed) == 0.0
+end

@@ -56,6 +56,7 @@ supports_partial_observations
 ```@docs
 ConstantHazard
 GeometricHazard
+NegativeBinomialHazard
 CustomHazard
 NoHistory
 FullHistory

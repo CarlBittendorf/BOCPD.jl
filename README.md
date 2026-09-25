@@ -126,6 +126,13 @@ joint_hazard = CustomHazard(
 
 The `depends_on` value describes the callable signature; hazard probabilities are still validated in `[0, 1]` at every transition.
 
+For a prior that rules out very short segments, use `NegativeBinomialHazard(successes, probability)`. Its expected segment length is `successes / probability`; `successes=1` reduces to a geometric hazard.
+
+```julia
+hazard = NegativeBinomialHazard(3, 0.02) # mean segment length 150
+result = fit(model, observations; hazard)
+```
+
 ## Missing data
 
 ```julia

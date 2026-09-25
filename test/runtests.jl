@@ -107,6 +107,14 @@ using Distributions
         @test changepoint_probability(result, 3; delay=0) == result.changepoint_probabilities[3]
         @test 0 <= changepoint_probability(result, 3; delay=1) <= 1
 
+        scored = BOCPD.fit(BernoulliModel(), [true, true, false];
+            hazard=GeometricHazard(0.5), store_predictive_log_scores=true)
+        @test scored.predictive_log_scores ≈ log.([1 / 2, 2 / 3, 2 / 7])
+
+        missing_score = BOCPD.fit(BernoulliModel(), Union{Missing,Bool}[true, missing];
+            store_predictive_log_scores=true)
+        @test missing_score.predictive_log_scores[2] == 0.0
+
         pruned = BOCPD.fit(model, data; pruning=TopKPruning(2), history=FullHistory())
 
         @test all(length.(pruned.runlength_history) .<= 2)

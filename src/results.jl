@@ -148,7 +148,9 @@ Process an iterable of scalar, vector, or `missing` observations. The returned
 `BOCPDResult` stores changepoint probabilities and diagnostics. By default, full
 run-length history is retained so delayed changepoint probabilities and fixed-lag
 smoothing are available without extra configuration. Use `NoHistory()` or
-`FixedLagHistory(L)` to limit retention.
+`FixedLagHistory(L)` to limit retention. Set `store_predictive_log_scores=true`
+to retain the prequential log evidence `log p(x_t | x_1:t-1)`, marginalized over
+the previous run-length posterior. Fully missing observations have score zero.
 """
 function fit(
     model::AbstractObservationModel, observations;
@@ -169,16 +171,14 @@ function fit(
 
     for x in observations
         push!(obs, x)
+        if store_predictive_log_scores
+            push!(scores, _prequential_log_score(detector, x))
+        end
+
         update!(detector, x)
         push!(cps, detector.changepoint_probability)
         push!(modes, most_likely_runlength(detector))
         push!(lost, detector.discarded_mass)
-
-        if store_predictive_log_scores
-            score_state = detector.states[argmax(detector.logprobs)]
-
-            push!(scores, x isa Missing ? 0.0 : logpredictive(model, score_state, x))
-        end
 
         history isa FullHistory && (push!(hist, runlength_probs(detector)); push!(vals, copy(detector.runs)))
     end
@@ -194,7 +194,8 @@ end
     fit(detector::BOCPDDetector, observations; store_predictive_log_scores=false)
 
 Continue `detector` over an iterable of observations and return a
-`BOCPDResult`.
+`BOCPDResult`. When `store_predictive_log_scores=true`, scores are prequential
+log evidence marginalized over the pre-update run-length posterior.
 """
 function fit(detector::BOCPDDetector, observations; store_predictive_log_scores=false)
     cps = Float64[]
@@ -207,16 +208,14 @@ function fit(detector::BOCPDDetector, observations; store_predictive_log_scores=
 
     for x in observations
         push!(obs, x)
+        if store_predictive_log_scores
+            push!(scores, _prequential_log_score(detector, x))
+        end
+
         update!(detector, x)
         push!(cps, detector.changepoint_probability)
         push!(modes, most_likely_runlength(detector))
         push!(lost, detector.discarded_mass)
-
-        if store_predictive_log_scores
-            state = detector.states[argmax(detector.logprobs)]
-
-            push!(scores, x isa Missing ? 0.0 : logpredictive(detector.model, state, x))
-        end
 
         detector.lag == typemax(Int) && (push!(hist, runlength_probs(detector)); push!(vals, copy(detector.runs)))
     end
@@ -227,6 +226,48 @@ function fit(detector::BOCPDDetector, observations; store_predictive_log_scores=
         full ? vals : nothing, store_predictive_log_scores ? scores : nothing, lost, obs,
         copy(detector.snapshots), copy(detector.statuses), detector.fully_missing_count,
         detector.partially_missing_count, detector.rejected_invalid_count)
+end
+
+function _prequential_log_score(d::BOCPDDetector, ::Missing)
+    0.0
+end
+
+function _prequential_log_score(d::BOCPDDetector, x::Real)
+    isnan(x) && d.invalid_data isa TreatNaNAsMissing && return 0.0
+    return _log_predictive_evidence(d, x)
+end
+
+function _prequential_log_score(d::BOCPDDetector, x::AbstractVector)
+    values = _prepare_vector(d, x)
+    missing_indices = findall(ismissing, values)
+
+    if isempty(missing_indices)
+        return _log_predictive_evidence(d, values)
+    elseif length(missing_indices) == length(values)
+        return 0.0
+    end
+
+    supports_partial_observations(d.model) ||
+        throw(ArgumentError("$(typeof(d.model)) does not support partially observed vectors"))
+
+    indices = collect(Int, setdiff(collect(eachindex(values)), missing_indices))
+    observation = ObservedSubset(collect(skipmissing(values)), indices, length(values))
+    return _log_predictive_evidence(d, observation)
+end
+
+_prequential_log_score(d::BOCPDDetector, x) = _log_predictive_evidence(d, x)
+
+function _log_predictive_evidence(d::BOCPDDetector, observation)
+    if d.time == 0
+        return logpredictive(d.model, prior_state(d.model), observation)
+    end
+
+    terms = similar(d.logprobs)
+    for index in eachindex(d.logprobs)
+        terms[index] = d.logprobs[index] + logpredictive(d.model, d.states[index], observation)
+    end
+
+    return logsumexp(terms)
 end
 
 """

@@ -72,6 +72,49 @@ end
 """Evaluate the constant geometric hazard at any run length."""
 (h::GeometricHazard)(::Integer) = h.probability
 
+"""
+    NegativeBinomialHazard(successes::Integer, probability::Real)
+
+Construct a duration-aware hazard from a negative-binomial segment-length
+distribution. Segment lengths have mass
+`P(L = ell) = binomial(ell - 1, successes - 1) * probability^successes *
+(1 - probability)^(ell - successes)` for `ell >= successes`, with mean
+`successes / probability`. At run length `r`,
+`H(r) = P(L = r + 1) / P(L >= r + 1)`. Thus `successes == 1` gives the
+geometric hazard `probability`, while larger values rule out short segments.
+
+The probability must lie in `(0, 1]`. Run lengths must be nonnegative.
+"""
+struct NegativeBinomialHazard{T<:Real}
+    successes::Int
+    probability::T
+
+    function NegativeBinomialHazard(successes::Integer, probability::Real)
+        successes > 0 || throw(ArgumentError("successes must be positive"))
+        isfinite(probability) && 0 < probability <= 1 ||
+            throw(ArgumentError("probability must be finite and lie in (0, 1]"))
+
+        p = float(probability)
+        return new{typeof(p)}(Int(successes), p)
+    end
+end
+
+function (hazard::NegativeBinomialHazard)(run::Integer)
+    run >= 0 || throw(DomainError(run, "run length must be nonnegative"))
+    run < hazard.successes - 1 && return zero(hazard.probability)
+    hazard.probability == one(hazard.probability) && return one(hazard.probability)
+
+    failures = run - hazard.successes + 1
+    distribution = NegativeBinomial(hazard.successes, hazard.probability)
+    log_mass = logpdf(distribution, failures)
+    log_survival = logccdf(distribution, failures - 1)
+
+    isfinite(log_survival) || return one(hazard.probability)
+    return clamp(
+        exp(log_mass - log_survival), zero(hazard.probability), one(hazard.probability)
+    )
+end
+
 function _hazard_probability(hazard, run::Int, time::Int)
     hazard isa CustomHazard ? hazard(run, time) : hazard(run)
 end

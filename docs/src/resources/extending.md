@@ -37,6 +37,12 @@ hazard = CustomHazard(
 )
 ```
 
+For a duration prior that discourages short segments, use
+`NegativeBinomialHazard(successes, probability)`. It induces
+`H(r) = P(L = r + 1) / P(L >= r + 1)` for a negative-binomial segment length
+`L`; `successes=1` is the geometric hazard, and the expected length is
+`successes / probability`.
+
 ## Pruning
 
 Built-in pruning strategies are concrete values. A custom strategy can implement the internal selection contract, but should be accompanied by normalization and discarded-mass tests before becoming public API.
