@@ -41,7 +41,7 @@ function _result_max_delay(r::BOCPDResult)
     elseif !isempty(r.snapshots)
         return max(0, length(r.snapshots) - 1)
     else
-        return "unavailable"
+        return "not retained"
     end
 end
 
@@ -51,20 +51,49 @@ function _result_pruning_label(r::BOCPDResult)
     return "approximate"
 end
 
+function _format_float(value)
+    buffer = IOBuffer()
+    show(IOContext(buffer, :compact => true), value)
+    return String(take!(buffer))
+end
+
+function _observation_dimension(result::BOCPDResult)
+    for value in result.observations
+        value === missing && continue
+        value isa AbstractVector && return length(value)
+        return 1
+    end
+    return nothing
+end
+
 function Base.show(io::IO, result::BOCPDResult)
-    times = time_index(result)
+    n = time_index(result)
     history = _result_history_label(result)
     max_delay = _result_max_delay(result)
     has_missing = result.fully_missing_count > 0
     pruning = _result_pruning_label(result)
+    cp = isempty(result.changepoint_probabilities) ? nothing : result.changepoint_probabilities[end]
+    mode = isempty(result.most_likely_runlengths) ? nothing : result.most_likely_runlengths[end]
 
-    print(io, "BOCPDResult(times=")
-    print(io, times)
-    print(io, ", history=")
-    print(io, history)
+    print(io, "BOCPDResult(")
+    print(io, n)
+    print(io, " ")
+    print(io, n == 1 ? "time point" : "time points")
+    if history != "not retained"
+        print(io, ", history=")
+        print(io, history)
+    end
     if max_delay isa Integer
-        print(io, ", max delay=")
+        print(io, ", max_delay=")
         print(io, max_delay)
+    end
+    if cp !== nothing
+        print(io, ", latest changepoint probability=")
+        print(io, _format_float(cp))
+    end
+    if mode !== nothing
+        print(io, ", MAP run length=")
+        print(io, mode)
     end
     if has_missing
         print(io, ", missing=")
@@ -79,18 +108,37 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", result::BOCPDResult)
     println(io, "BOCPDResult")
-    println(io, "  time points:            ", time_index(result))
+    println(io, "  sequence:")
+    println(io, "    time points:                  ", time_index(result))
+    if result.fully_missing_count > 0
+        println(io, "    missing observations:         ", result.fully_missing_count)
+    end
+    dimension = _observation_dimension(result)
+    if dimension !== nothing
+        println(io, "    observation dimension:         ", dimension)
+    end
+
     if !isempty(result.changepoint_probabilities)
-        println(io, "  latest changepoint prob.: ", result.changepoint_probabilities[end])
+        println(io, "  latest estimate:")
+        println(io, "    changepoint probability:      ", _format_float(result.changepoint_probabilities[end]))
+        if !isempty(result.most_likely_runlengths)
+            println(io, "    MAP run length:               ", result.most_likely_runlengths[end])
+        end
     end
-    if !isempty(result.most_likely_runlengths)
-        println(io, "  latest MAP run length:  ", result.most_likely_runlengths[end])
+
+    println(io, "  history:")
+    println(io, "    retention:                   ", _result_history_label(result))
+    println(io, "    maximum delay:               ", _result_max_delay(result))
+
+    pruning = _result_pruning_label(result)
+    if pruning != "none" && !isempty(result.discarded_mass)
+        println(io, "  approximation:")
+        println(io, "    pruning:                     ", pruning)
+        println(io, "    discarded mass:              ", _format_float(last(result.discarded_mass)))
+    else
+        println(io, "  approximation:")
+        println(io, "    pruning:                     ", pruning)
     end
-    println(io, "  retained history:       ", _result_history_label(result))
-    delay = _result_max_delay(result)
-    println(io, "  maximum delay:          ", delay)
-    println(io, "  missing observations:   ", result.fully_missing_count)
-    println(io, "  pruning:               ", _result_pruning_label(result))
 end
 
 """
