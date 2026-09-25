@@ -62,6 +62,19 @@ model = NormalInverseGammaModel(
 
 This is a conjugate normal-inverse-gamma prior. The `prior_strength` controls how much the initial mean estimate is trusted. The `shape` and `scale` parameters describe the prior uncertainty in the segment variance. A larger `shape` and larger `scale` make the variance prior more concentrated or more spread out depending on the values chosen.
 
+## Multivariate data shape
+
+For multivariate observations, the detector expects a collection of vectors, where each vector contains one observation for all coordinates at a given time step. If your data are stored as separate coordinate vectors, reshape them before fitting:
+
+```julia
+x = [0.0, 0.2, 4.0]
+y = [1.0, 0.9, 5.0]
+observations = collect.(zip(x, y))
+# observations == [[0.0, 1.0], [0.2, 0.9], [4.0, 5.0]]
+```
+
+This gives the correct input shape for a 2D model: a vector with one length-2 observation per time point.
+
 ## Choose a hazard function
 
 A hazard is the prior probability that the next observation begins a new segment. In BOCPD.jl, hazards are functions or callable objects. A simple choice is a constant hazard with an expected segment length of 100 observations:

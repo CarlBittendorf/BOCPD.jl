@@ -93,6 +93,17 @@ model = MultivariateGaussianMeanModel(
 fit(model, multivariate_data; hazard = ConstantHazard(50))
 ```
 
+When your multivariate data are stored as separate coordinate vectors, reshape them so each element is one observation at a single time point:
+
+```julia
+x = [0.0, 0.2, 4.0]
+y = [1.0, 0.9, 5.0]
+observations = collect.(zip(x, y))
+# observations == [[0.0, 1.0], [0.2, 0.9], [4.0, 5.0]]
+```
+
+The detector expects a vector of observations, where each observation is itself a vector of length equal to the measurement dimension.
+
 ## Hazards
 
 `ConstantHazard(100)` means a geometric expected segment length of 100. `GeometricHazard(0.01)` expresses the same constant probability directly. Ordinary functions are also accepted:
