@@ -71,11 +71,11 @@ end
 | `GaussianMeanModel` | Scalar continuous | Mean; variance is known | Gaussian | Not applicable |
 | `NormalInverseGammaModel` | Scalar continuous | Mean and variance | Student-t | Not applicable |
 | `MultivariateGaussianMeanModel` | Vector continuous | Mean; covariance is known | Multivariate Gaussian | Exact marginal update |
-| `NormalInverseWishartModel` | Vector continuous | Mean and full covariance | Multivariate Student-t | Not supported; fully missing vectors are supported |
+| `MultivariateGaussianMeanCovarianceModel` | Vector continuous | Mean and full covariance | Multivariate Student-t | Not supported; fully missing vectors are supported |
 | `BernoulliModel` | Boolean | Success probability | Beta-Bernoulli predictive | Not applicable |
 | `PoissonModel` | Nonnegative integer count | Rate | Negative-binomial predictive | Not applicable |
 
-Use `GaussianMeanModel` when the measurement noise variance is known and stable. Use `NormalInverseGammaModel` when both the segment mean and its scalar variance may change. For vector-valued measurements with known measurement covariance, use `MultivariateGaussianMeanModel`; it also supports vectors with some coordinates missing. For vector-valued measurements where both the mean and full covariance are unknown, use `NormalInverseWishartModel`. Its complete observations are conjugate, but partial vectors are rejected because exact conjugate updates with an unknown full covariance are not implemented.
+Use `GaussianMeanModel` when the measurement noise variance is known and stable. Use `NormalInverseGammaModel` when both the segment mean and its scalar variance may change. For vector-valued measurements with known measurement covariance, use `MultivariateGaussianMeanModel`; it also supports vectors with some coordinates missing. For vector-valued measurements where both the mean and full covariance are unknown, use `MultivariateGaussianMeanCovarianceModel`. Its complete observations are conjugate, but partial vectors are rejected because exact conjugate updates with an unknown full covariance are not implemented.
 
 ## Multivariate example
 

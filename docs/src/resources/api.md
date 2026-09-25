@@ -44,7 +44,7 @@ reset
 GaussianMeanModel
 NormalInverseGammaModel
 MultivariateGaussianMeanModel
-NormalInverseWishartModel
+MultivariateGaussianMeanCovarianceModel
 BernoulliModel
 PoissonModel
 ObservedSubset

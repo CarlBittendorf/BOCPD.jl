@@ -292,30 +292,143 @@ function update(m::MultivariateGaussianMeanModel, s::MultivariateGaussianMeanSta
 end
 
 """
-    NormalInverseWishartModel(; prior_mean, prior_strength=1.0,
-                              degrees_of_freedom=length(prior_mean) + 2.0,
-                              scale_matrix=I)
+    MultivariateGaussianMeanCovarianceModel(dimension::Integer; T=Float64)
+    MultivariateGaussianMeanCovarianceModel(; dimension::Integer, T=Float64)
+    MultivariateGaussianMeanCovarianceModel(prior_mean::AbstractVector;
+        prior_strength=1.0,
+        degrees_of_freedom=length(prior_mean) + 2.0,
+        scale=I)
 
-Model multivariate Gaussian observations with a Normal-Inverse-Wishart prior
-for the unknown mean and full covariance. Partially observed vectors are not
-supported.
+A multivariate Gaussian observation model with an unknown mean and unknown full
+covariance matrix. The model uses a Normal-Inverse-Wishart prior, which yields a
+multivariate Student-t posterior predictive distribution. Partially observed
+vectors are not supported, but fully missing vectors remain valid.
+
+The default constructor `MultivariateGaussianMeanCovarianceModel(dimension)` creates
+an isotropic zero-centered prior with identity-scale uncertainty, where the prior
+mean is `zeros(dimension)`, the prior strength is `1`, the degrees of freedom are
+`dimension + 2`, and the scale matrix is the identity. This gives a proper,
+weakly informative prior for a multivariate Gaussian with an unknown mean and an
+unknown covariance. For stronger or more informative priors, supply the full
+hyperparameters explicitly.
+
+The model is the multivariate analogue of `GaussianMeanModel` with unknown mean
+and known variance, and the multivariate analogue of `NormalInverseGammaModel`
+for scalar unknown variance. The predictive distribution is a multivariate
+Student-t distribution, and the posterior updates preserve the same conjugate
+Normal-Inverse-Wishart family.
 """
-struct NormalInverseWishartModel{
+struct MultivariateGaussianMeanCovarianceModel{
     T<:Real,V<:AbstractVector{T},M<:AbstractMatrix{T}} <: AbstractObservationModel
     prior_mean::V
     prior_strength::T
     degrees_of_freedom::T
     scale_matrix::M
+
+    function MultivariateGaussianMeanCovarianceModel(
+        prior_mean::AbstractVector{T},
+        prior_strength::Real,
+        degrees_of_freedom::Real,
+        scale_matrix::AbstractMatrix{U},
+    ) where {T<:Real,U<:Real}
+        d = length(prior_mean)
+        d > 0 || throw(ArgumentError("prior_mean must be non-empty"))
+        all(isfinite, prior_mean) || throw(ArgumentError("prior_mean entries must be finite"))
+
+        strength = float(prior_strength)
+        df = float(degrees_of_freedom)
+        strength > 0 || throw(ArgumentError("prior_strength must be positive"))
+        df > d - 1 || throw(ArgumentError("degrees_of_freedom must exceed dimension - 1"))
+
+        size(scale_matrix, 1) == d && size(scale_matrix, 2) == d || throw(DimensionMismatch(
+            "scale_matrix must have the same dimension as prior_mean"
+        ))
+        all(isfinite, scale_matrix) || throw(ArgumentError("scale_matrix entries must be finite"))
+        isapprox(scale_matrix, scale_matrix', atol=1e-8, rtol=1e-7) || throw(ArgumentError("scale_matrix must be symmetric"))
+
+        try
+            cholesky(Symmetric(scale_matrix))
+        catch
+            throw(PosDefException("scale_matrix must be positive definite"))
+        end
+
+        promoted = promote_type(T, typeof(strength), typeof(df), U)
+        prior_mean_t = Vector{promoted}(prior_mean)
+        scale_t = Matrix{promoted}(scale_matrix)
+        return new{promoted,typeof(prior_mean_t),typeof(scale_t)}(
+            prior_mean_t,
+            convert(promoted, strength),
+            convert(promoted, df),
+            scale_t,
+        )
+    end
 end
 
-function NormalInverseWishartModel(;
-    prior_mean,
-    prior_strength=1.0,
-    degrees_of_freedom=length(prior_mean)+2.0,
-    scale_matrix=Matrix{typeof(prior_strength)}(I, length(prior_mean), length(prior_mean))
-)
-    NormalInverseWishartModel(prior_mean, prior_strength, degrees_of_freedom, scale_matrix)
+function Base.:(==)(a::MultivariateGaussianMeanCovarianceModel, b::MultivariateGaussianMeanCovarianceModel)
+    return a.prior_mean == b.prior_mean &&
+           a.prior_strength == b.prior_strength &&
+           a.degrees_of_freedom == b.degrees_of_freedom &&
+           a.scale_matrix == b.scale_matrix
 end
+
+function MultivariateGaussianMeanCovarianceModel(
+    dimension::Integer;
+    T::Type{<:Real}=Float64,
+)
+    dimension > 0 || throw(ArgumentError("dimension must be positive"))
+    prior_mean = zeros(T, Int(dimension))
+    prior_strength = one(T)
+    degrees_of_freedom = T(dimension + 2)
+    scale_matrix = Matrix{T}(I, Int(dimension), Int(dimension))
+
+    return MultivariateGaussianMeanCovarianceModel(prior_mean, prior_strength, degrees_of_freedom, scale_matrix)
+end
+
+function MultivariateGaussianMeanCovarianceModel(;
+    dimension::Union{Integer,Nothing}=nothing,
+    prior_mean::Union{AbstractVector,Nothing}=nothing,
+    T::Type{<:Real}=Float64,
+    prior_strength::Real=1.0,
+    degrees_of_freedom::Union{Real,Nothing}=nothing,
+    scale::Union{AbstractMatrix,Nothing}=nothing,
+    scale_matrix::Union{AbstractMatrix,Nothing}=nothing,
+)
+    if prior_mean === nothing
+        dimension === nothing && throw(ArgumentError("Specify either dimension or prior_mean"))
+        dimension > 0 || throw(ArgumentError("dimension must be positive"))
+        prior_mean = zeros(T, Int(dimension))
+    else
+        if dimension !== nothing && length(prior_mean) != Int(dimension)
+            throw(DimensionMismatch("dimension and prior_mean length must agree"))
+        end
+        dimension = length(prior_mean)
+    end
+
+    if scale_matrix !== nothing
+        scale === nothing || throw(ArgumentError("Specify only one of scale or scale_matrix"))
+        scale = scale_matrix
+    end
+    if scale === nothing
+        scale = Matrix{T}(I, Int(dimension), Int(dimension))
+    end
+    if degrees_of_freedom === nothing
+        degrees_of_freedom = T(dimension + 2)
+    end
+
+    return MultivariateGaussianMeanCovarianceModel(prior_mean, prior_strength, degrees_of_freedom, scale)
+end
+
+function MultivariateGaussianMeanCovarianceModel(
+    prior_mean::AbstractVector{T};
+    prior_strength::Real=one(T),
+    degrees_of_freedom::Real=length(prior_mean) + 2,
+    scale::AbstractMatrix{<:Real}=Matrix{T}(I, length(prior_mean), length(prior_mean)),
+) where {T<:Real}
+    return MultivariateGaussianMeanCovarianceModel(prior_mean, prior_strength, degrees_of_freedom, scale)
+end
+
+const NormalInverseWishartModel = MultivariateGaussianMeanCovarianceModel
+Base.@deprecate NormalInverseWishartModel(args...; kwargs...) MultivariateGaussianMeanCovarianceModel(args...; kwargs...)
 
 struct NormalInverseWishartState{
     T<:Real,V<:AbstractVector{T},M<:AbstractMatrix{T}} <: AbstractPosteriorState
@@ -325,11 +438,11 @@ struct NormalInverseWishartState{
     scale_matrix::M
 end
 
-function prior_state(m::NormalInverseWishartModel)
+function prior_state(m::MultivariateGaussianMeanCovarianceModel)
     NormalInverseWishartState(copy(m.prior_mean), m.prior_strength, m.degrees_of_freedom, copy(m.scale_matrix))
 end
 
-function predictive_distribution(::NormalInverseWishartModel, s::NormalInverseWishartState)
+function predictive_distribution(::MultivariateGaussianMeanCovarianceModel, s::NormalInverseWishartState)
     d = length(s.mean)
     ν = s.degrees_of_freedom - d + 1
     scale = ((s.strength + 1) / (s.strength * ν)) * s.scale_matrix
@@ -337,13 +450,13 @@ function predictive_distribution(::NormalInverseWishartModel, s::NormalInverseWi
     return MvTDist(ν, s.mean, Matrix(Symmetric(scale)))
 end
 
-function logpredictive(m::NormalInverseWishartModel, s::NormalInverseWishartState, x::AbstractVector)
+function logpredictive(m::MultivariateGaussianMeanCovarianceModel, s::NormalInverseWishartState, x::AbstractVector)
     length(x) == length(s.mean) || throw(DimensionMismatch("Observation dimension does not match model"))
 
     return logpdf(predictive_distribution(m, s), x)
 end
 
-function update(::NormalInverseWishartModel, s::NormalInverseWishartState, x::AbstractVector)
+function update(::MultivariateGaussianMeanCovarianceModel, s::NormalInverseWishartState, x::AbstractVector)
     length(x) == length(s.mean) || throw(DimensionMismatch("Observation dimension does not match model"))
 
     k = s.strength + 1

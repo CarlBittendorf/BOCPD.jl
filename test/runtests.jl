@@ -46,11 +46,25 @@ using Distributions
 
         @test length(update(mv, prior_state(mv), [1.0, 2.0]).mean) == 2
 
-        niw = NormalInverseWishartModel(prior_mean=μ, scale_matrix=I₂)
+        niw = MultivariateGaussianMeanCovarianceModel(prior_mean=μ, scale=I₂)
 
         @test length(update(niw, prior_state(niw), [1.0, 2.0]).mean) == 2
         @test isfinite(logpredictive(niw, prior_state(niw), [1.0, 2.0]))
         @test_throws DimensionMismatch logpredictive(mv, prior_state(mv), [1.0])
+
+        d3 = MultivariateGaussianMeanCovarianceModel(3)
+        @test length(d3.prior_mean) == 3
+        @test size(d3.scale_matrix) == (3, 3)
+        @test isposdef(Matrix(Symmetric(d3.scale_matrix)))
+        @test d3.prior_strength > 0
+        @test d3.degrees_of_freedom > 2
+
+        @test MultivariateGaussianMeanCovarianceModel(dimension=3) == MultivariateGaussianMeanCovarianceModel(3)
+        @test_throws ArgumentError MultivariateGaussianMeanCovarianceModel(0)
+        @test_throws ArgumentError MultivariateGaussianMeanCovarianceModel(prior_mean=zeros(0))
+        @test_throws ArgumentError MultivariateGaussianMeanCovarianceModel(prior_mean=zeros(3), prior_strength=0.0)
+        @test_throws ArgumentError MultivariateGaussianMeanCovarianceModel(prior_mean=zeros(3), degrees_of_freedom=2.0)
+        @test_throws DimensionMismatch MultivariateGaussianMeanCovarianceModel(prior_mean=zeros(3), scale=Matrix{Float64}(I, 2, 2))
     end
 
     @testset "online run-length filter" begin
