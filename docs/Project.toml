@@ -8,7 +8,7 @@ LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
 BOCPD = {path = "/Users/carlbittendorf/.julia/dev/BOCPD"}
 
 [compat]
-BOCPD = "0.1"
+BOCPD = "^0"
 Documenter = "1"
 DocumenterVitepress = "0.3"
 LiveServer = "1"
