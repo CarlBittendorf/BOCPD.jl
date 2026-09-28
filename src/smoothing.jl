@@ -1,3 +1,16 @@
+function _smoothing_observation(observation)
+    observation === missing && return missing
+    observation isa Real && isnan(observation) && return missing
+    observation isa AbstractVector || return observation
+
+    indices = findall(value -> !ismissing(value) && !(value isa Real && isnan(value)), observation)
+    length(indices) == length(observation) && return observation
+    isempty(indices) && return missing
+
+    values = collect(skipmissing(observation[indices]))
+    ObservedSubset(values, collect(Int, indices), length(observation))
+end
+
 function _snapshot_at(r::BOCPDResult, t::Int)
     t >= 1 && t <= length(r.observations) || throw(BoundsError(r.observations, t))
 
@@ -15,12 +28,13 @@ function _backward_beta(r::BOCPDResult, t::Int, finish::Int)
 
     for u in finish:-1:(t+1)
         previous = _snapshot_at(r, u - 1)
+        observation = _smoothing_observation(r.observations[u])
         reset_index = findfirst(==(0), next_snapshot.runs)
         parent_beta = fill(-Inf, length(previous.runs))
-        reset_lp = logpredictive(r.model, prior_state(r.model), r.observations[u])
+        reset_lp = logpredictive(r.model, prior_state(r.model), observation)
 
         for j in eachindex(previous.runs)
-            lp = logpredictive(r.model, previous.states[j], r.observations[u])
+            lp = logpredictive(r.model, previous.states[j], observation)
             reset_log = _hazard_log(r.hazard, previous.runs[j], u - 1) + reset_lp
             growth_log = _survival_log(r.hazard, previous.runs[j], u - 1) + lp
             growth_index = findfirst(==(previous.runs[j] + 1), next_snapshot.runs)
@@ -77,12 +91,13 @@ function changepoint_probability(r::BOCPDResult, t::Integer; delay=0)
     end
 
     previous = _snapshot_at(r, t - 1)
+    observation = _smoothing_observation(r.observations[t])
     reset_terms = Float64[]
     all_terms = Float64[]
-    reset_lp = logpredictive(r.model, prior_state(r.model), r.observations[t])
+    reset_lp = logpredictive(r.model, prior_state(r.model), observation)
 
     for j in eachindex(previous.runs)
-        lp = logpredictive(r.model, previous.states[j], r.observations[t])
+        lp = logpredictive(r.model, previous.states[j], observation)
         reset = previous.logprobs[j] + _hazard_log(r.hazard, previous.runs[j], t - 1) + reset_lp + beta[reset_index]
         growth = previous.logprobs[j] + _survival_log(r.hazard, previous.runs[j], t - 1) + lp
         growth_index = findfirst(==(previous.runs[j] + 1), _snapshot_at(r, t).runs)

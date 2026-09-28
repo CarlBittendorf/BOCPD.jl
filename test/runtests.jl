@@ -233,6 +233,23 @@ using Distributions
         @test observation_status(all_missing, 1) == :missing
         @test all_missing.fully_missing_count == 1
 
+        observations = Any[
+            [1.0, 2.0],
+            Union{Missing,Float64}[missing, 3.0],
+            Union{Missing,Float64}[missing, missing],
+            [4.0, 5.0],
+        ]
+        result = BOCPD.fit(model, observations; history=FullHistory())
+        online = changepoint_probabilities(result)
+        delayed = changepoint_probabilities(result; delay=2)
+
+        @test observation_status(result, 2) == :partially_observed
+        @test observation_status(result, 3) == :missing
+        @test online == result.changepoint_probabilities
+        @test length(delayed) == length(observations)
+        @test all(isfinite, delayed)
+        @test all(0 .<= delayed .<= 1)
+
         @test_throws ArgumentError update!(
             BOCPDDetector(NormalInverseWishartModel(prior_mean=[0.0, 0.0], scale_matrix=identity_covariance)),
             Union{Missing,Float64}[1.0, missing]
